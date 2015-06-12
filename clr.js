@@ -164,7 +164,7 @@ function GetSegments(socket){
 function SegmentToRaw(segment){
     return segment.reduce(function(raw,line){
         if(raw.length>0){
-            return raw + '\n' + line.raw;
+            return raw + '\r\n' + line.raw;
         }else{
             return line.raw;
         }
@@ -205,7 +205,7 @@ function ArchiveCombatLog(){
             
             var raw = timeSegments.reduce(function(raw, segment){
                 if(raw.length > 0){
-                    return raw + '\n' + SegmentToRaw(segment);
+                    return raw + '\r\n' + SegmentToRaw(segment);
                 }else{
                     return SegmentToRaw(segment);
                 }
