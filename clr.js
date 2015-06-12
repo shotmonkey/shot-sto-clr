@@ -17,6 +17,7 @@ var timeSegmentDisplayFormat = 'YYYYMMDD HH.mm.ss.S';
 var minUpdateInterval = 500;
 var maxUpdateLines = 10000;
 
+var autoArchiveEnabled = true;
 var autoArchiveTimeout;
 var autoArchiveKeepSegmentCount = 1;
 
@@ -146,6 +147,9 @@ function CalculateSegments(){
         lineBin.push(line);
         lastTime = line.timestamp;
     }
+    if(lineBin.length > 0){
+        timeSegments.push(lineBin);
+    }
 }
 
 function GetSegments(socket){
@@ -158,6 +162,10 @@ function GetSegments(socket){
         return firstTime.format(timeSegmentDisplayFormat) + ' to ' + lastTime.format(timeSegmentDisplayFormat);
     });
     socket.emit('segments', timeSegmentStrings);
+    
+    if(timeSegments.length > 0){
+        socket.emit('segment-data', SegmentDamageData(timeSegments[timeSegments.length - 1], 1000));
+    }
 }
 
 
@@ -172,6 +180,7 @@ function SegmentToRaw(segment){
 }
 
 function TryAutoArchiveSegments(){
+    if(!autoArchiveEnabled){ return; }
     CalculateSegments();
     if(timeSegments.length > autoArchiveKeepSegmentCount){
         ArchiveCombatLog();
@@ -179,6 +188,7 @@ function TryAutoArchiveSegments(){
 }
 
 function ArchiveCombatLog(){
+    if(!autoArchiveEnabled){ return; }
     
     console.log('Archiving combat log!');
     
@@ -215,4 +225,43 @@ function ArchiveCombatLog(){
        
         }       
     });
+}
+
+function GetSegment(startTime, endTime){
+    return lines.filter(function(l){ return l.timestamp >= startTime && l.timestamp <= endTime; });
+}
+
+function SegmentDamageData(segment, interval){
+    
+    console.log('SegmentDamageData');
+    console.log(segment.length, interval);
+    
+    var startTime = segment[0].timestamp;
+    var endTime = segment[segment.length - 1].timestamp;
+    var time = startTime;
+    
+    var segmentCopy = segment.slice();
+    var data = [];
+    
+    while(time < endTime){
+        
+        var nextTime = moment(time).add(interval, 'ms');
+        var damageSum = 0;
+        
+        while(true){
+            if(segmentCopy.length == 0){ break; }
+            var line = segmentCopy[0];
+            if(line.timestamp.valueOf() >= nextTime.valueOf()){ break; }
+            segmentCopy.shift();
+            if(util.IsDamageType(line.type)){
+                damageSum += line.magnitude;
+            }
+        }
+        
+        data.push([nextTime.format('HH:mm:ss'), damageSum]);
+        
+        time = nextTime;
+    }
+    
+    return data;
 }

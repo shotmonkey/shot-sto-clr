@@ -3,6 +3,10 @@
 <head>
     <script src="/socket.io/socket.io.js"></script>
     <script src="//code.jquery.com/jquery-2.1.4.min.js"></script>
+    <script type="text/javascript" src="https://www.google.com/jsapi"></script>
+    <script type="text/javascript">
+        google.load('visualization', '1.0', {'packages':['corechart']})
+    </script>
 </head>
 <body>
     <div id="socket-buttons">
@@ -52,6 +56,52 @@
             $select.append(O(data[i]));
         }
         $('#segments').html($select);
+    });
+    
+    socket.on('segment-data', function(data){
+        console.log(data);
+        
+        var dataTable;
+        
+        var smoothSeconds = 5;
+        var smoothData = data.reduce(function(newdata, d, di, data){
+            var recentDamage = 0;
+            for(var i = Math.max(0, di - smoothSeconds); i <= di; i++){
+                recentDamage += data[i][1];
+            }
+            recentDamage = Math.round((recentDamage / smoothSeconds) * 10) / 10;
+            newdata.push([d[0], recentDamage]);
+            return newdata;
+        },[]);
+        
+        var sumData = data.reduce(function(newdata, d){
+            var total = newdata.length > 0 ? newdata[newdata.length - 1][1] : 0;
+            newdata.push([d[0], total + d[1]]);
+            return newdata;
+        },[]);
+        
+        var chart;
+        
+        dataTable = new google.visualization.DataTable();
+        dataTable.addColumn('string', 'Time');
+        dataTable.addColumn('number', 'Damage/s');
+        dataTable.addRows(data);
+        chart = new google.visualization.LineChart($('<div>').appendTo('body')[0]);
+        chart.draw(dataTable, {});
+        
+        dataTable = new google.visualization.DataTable();
+        dataTable.addColumn('string', 'Time');
+        dataTable.addColumn('number', 'Damage (Avg/' + smoothSeconds + 's)');
+        dataTable.addRows(smoothData);
+        chart = new google.visualization.LineChart($('<div>').appendTo('body')[0]);
+        chart.draw(dataTable, {});
+        
+        dataTable = new google.visualization.DataTable();
+        dataTable.addColumn('string', 'Time');
+        dataTable.addColumn('number', 'Damage (Total)');
+        dataTable.addRows(sumData);
+        chart = new google.visualization.LineChart($('<div>').appendTo('body')[0]);
+        chart.draw(dataTable, {});
     });
 </script>
 </html>

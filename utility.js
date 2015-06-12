@@ -96,6 +96,27 @@ module.exports = (function(){
             s4() + '-' + s4() + s4() + s4();
     }
     
+    this.DamageTypeClass = function(type){
+        var damageTypes = {
+            energy: ['phaser', 'disruptor', 'plasma', 'tetryon', 'polaron', 'antiproton'],
+            kinetic: ['kinetic'],
+            physical: ['physical'],
+            exotic: ['acid', 'cold', 'electrical', 'fire', 'proton', 'psionic', 'radiation', 'toxic']
+        };
+        var ltype = type.toLowerCase();
+        for(var i in damageTypes){
+            if(damageTypes[i].indexOf(ltype) > -1){
+                return i;
+            }
+        }
+        return 'unknown';
+    }
+    
+    this.IsDamageType = function(type){
+        var damageClass = this.DamageTypeClass(type);
+        return damageClass != 'unknown';
+    }
+    
     return this;
     
 }());
