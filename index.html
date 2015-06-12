@@ -1,0 +1,57 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <script src="/socket.io/socket.io.js"></script>
+    <script src="//code.jquery.com/jquery-2.1.4.min.js"></script>
+</head>
+<body>
+    <div id="socket-buttons">
+        <button data-command="subscribe" id="subscribe">Enable Auto-Refresh</button>
+        <button data-command="unsubscribe" id="unsubscribe">Disable Auto-refresh</button>
+        <button data-command="clear">Clear</button>
+        <button data-command="reload">Reload</button>
+        <button data-command="count">Count</button>
+        <button data-command="getsegments">Get Segments</button>
+    </div>
+    <div id="segments">
+    </div>
+</body>
+<script>
+    var socket = io();
+    
+    $('#socket-buttons > button').on('click', function(){
+        socket.emit($(this).data('command'));
+    });
+    
+    $('#unsubscribe').hide();
+    
+    socket.on('subscribed', function(){
+        $('#subscribe').hide();
+        $('#unsubscribe').show();
+    });
+    socket.on('unsubscribed', function(){
+        $('#unsubscribe').hide();
+        $('#subscribe').show();
+    });
+    
+    socket.on('count', function(count){ 
+        console.log('Count: ', count);
+    });
+    
+    socket.on('line-added', function(count){ 
+        console.log('Line added. Count: ', count);
+    });
+    
+    socket.on('segments', function(data){
+        var $select = $('<select>');
+        function O(data,label){
+            label = label || data;
+            return $('<option>').text(label).attr('value', data);
+        }
+        for(var i = 0; i < data.length; i++){
+            $select.append(O(data[i]));
+        }
+        $('#segments').html($select);
+    });
+</script>
+</html>
