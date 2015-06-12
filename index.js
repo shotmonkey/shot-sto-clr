@@ -6,8 +6,8 @@ var tff = require('text-file-follower');
 var moment = require('moment');
 var util = require('./utility.js');
 
-var combatLogFile = 'D:\\Games\\Steam\\steamapps\\common\\Star Trek Online\\Star Trek Online\\Live\\logs\\GameClient\\Combatlog.Log';
-var combatLogArchiveDirectory = 'D:\\Games\\Steam\\steamapps\\common\\Star Trek Online\\Star Trek Online\\Live\\logs\\GameClient\\Combatlog_archive';
+var combatLogFile = './Combatlog.Log';
+var combatLogArchiveDirectory = './Combatlog_archive';
 var lines = [];
 
 var timeSegmentSplitByTime = 60 * 1000;
@@ -198,7 +198,7 @@ function ArchiveCombatLog(){
                 var segment = timeSegments.shift();
                 var guid = util.Guid();
                 var segmentFileName = segment[0].timestamp.format(timeSegmentDisplayFormat) + ' - ' + segment[segment.length-1].timestamp.format(timeSegmentDisplayFormat) + '.log';
-                var filePath = combatLogArchiveDirectory + '\\' + segmentFileName;
+                var filePath = combatLogArchiveDirectory + '/' + segmentFileName;
                 fs.writeFileSync(filePath, SegmentToRaw(segment));
                 console.log('Archived ' + segmentFileName);
             }
