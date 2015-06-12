@@ -35,11 +35,11 @@
     });
     
     socket.on('count', function(count){ 
-        console.log('Count: ', count);
+        console.log(Date.now(), 'Count: ', count);
     });
     
     socket.on('line-added', function(count){ 
-        console.log('Line added. Count: ', count);
+        console.log(Date.now(), 'Line added. Count: ', count);
     });
     
     socket.on('segments', function(data){

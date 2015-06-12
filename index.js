@@ -6,11 +6,19 @@ var tff = require('text-file-follower');
 var moment = require('moment');
 var util = require('./utility.js');
 
-var combatLogFile = 'D:/node/CombatLog.log';
+var combatLogFile = 'D:\\Games\\Steam\\steamapps\\common\\Star Trek Online\\Star Trek Online\\Live\\logs\\GameClient\\Combatlog.Log';
+var combatLogArchiveDirectory = 'D:\\Games\\Steam\\steamapps\\common\\Star Trek Online\\Star Trek Online\\Live\\logs\\GameClient\\Combatlog_archive';
 var lines = [];
+
+var timeSegmentSplitByTime = 60 * 1000;
+var timeSegments = null;
+var timeSegmentDisplayFormat = 'YYYYMMDD HH.mm.ss.S';
 
 var minUpdateInterval = 500;
 var maxUpdateLines = 10000;
+
+var autoArchiveTimeout;
+var autoArchiveKeepSegmentCount = 1;
 
 app.get('/', function(request, response){
     response.sendFile(__dirname + '/index.html');
@@ -21,9 +29,16 @@ function InitTextFileFollower(){
     if(follower){ follower.close(); }
     follower = new tff(combatLogFile, {catchup: true});
     follower.on('success', function(filename){
-        console.log('Tracking file: ', filename);
+        console.log('Tracking file:', filename);
+    });
+    follower.on('error', function(filename, error){
+       console.log('Error tracking file:', filename, error); 
+    });
+    follower.on('close', function(filename){
+        console.log('File closed:', filename);
     });
     follower.on('line', ParseCombatLogLine);
+    
 };
 InitTextFileFollower();
 
@@ -59,9 +74,11 @@ function Subscribe(socket){
     socket.emit('subscribed');
 }
 function Unsubscribe(socket){
-    console.log('Socket unsubscribed', socket.id);
-    socket.leave('updates');
-    socket.subscribed = false;
+    if(socket.subscribed){
+        console.log('Socket unsubscribed', socket.id);
+        socket.leave('updates');
+        socket.subscribed = false;
+    }
     socket.emit('unsubscribed');
 }
 
@@ -75,6 +92,10 @@ function ParseCombatLogLine(filename, line){
     if(cll){
         lines.push(cll);
         ClearParsedVars();
+        
+        if(autoArchiveTimeout){ clearTimeout(autoArchiveTimeout); }
+        autoArchiveTimeout = setTimeout(TryAutoArchiveSegments, 500);
+        
         SendSocketUpdatesIfNeeded();
     }
 }
@@ -102,9 +123,6 @@ function SendUpdate(socket){
     socket.emit('line-added', lines.length);
 }
 
-var timeSegmentSplitByTime = 60 * 1000;
-var timeSegments = null;
-
 function ClearParsedVars(){
     timeSegments = null;
 }
@@ -116,6 +134,11 @@ function CalculateSegments(){
     for(var i = 0; i < lines.length; i++){
         var line = lines[i];
         if(!lastTime){ lastTime = line.timestamp; continue; }
+        
+        if(line.timestamp < lastTime){
+            console.log("Warning! Timestamp has gone down!");
+        }
+        
         if(line.timestamp.diff(lastTime) > timeSegmentSplitByTime){
             timeSegments.push(lineBin);
             lineBin = [];
@@ -128,64 +151,68 @@ function CalculateSegments(){
 function GetSegments(socket){
     if(!timeSegments){
         CalculateSegments();
-    }else{
-        var format = "dddd, MMMM Do YYYY, h:mm:ss a";
-        var timeSegmentStrings = timeSegments.map(function(ts){
-            var firstTime = ts[0].timestamp;
-            var lastTime = ts[ts.length - 1].timestamp;
-            return firstTime.format(format) + ' to ' + lastTime.format(format);
-        });
-        socket.emit('segments', timeSegmentStrings);
+    }
+    var timeSegmentStrings = timeSegments.map(function(ts){
+        var firstTime = ts[0].timestamp;
+        var lastTime = ts[ts.length - 1].timestamp;
+        return firstTime.format(timeSegmentDisplayFormat) + ' to ' + lastTime.format(timeSegmentDisplayFormat);
+    });
+    socket.emit('segments', timeSegmentStrings);
+}
+
+
+function SegmentToRaw(segment){
+    return segment.reduce(function(raw,line){
+        if(raw.length>0){
+            return raw + '\n' + line.raw;
+        }else{
+            return line.raw;
+        }
+    }, '');
+}
+
+function TryAutoArchiveSegments(){
+    CalculateSegments();
+    if(timeSegments.length > autoArchiveKeepSegmentCount){
+        ArchiveCombatLog();
     }
 }
 
-function EndParseCombatLog(socket){
-    parseEndTime = moment();
-    var timeDiff = parseEndTime.diff(parseStartTime)
-    console.log(parseStartTime.format(), parseEndTime.format(), timeDiff);
-    console.log(firstTimeParsed.format(), lastTimeParsed.format(), lastTimeParsed.diff(firstTimeParsed))
+function ArchiveCombatLog(){
     
-    console.log("Splitting into time groups");
+    console.log('Archiving combat log!');
     
-    var splitLines = [];
-    var lineBin = [];
-    var lastTime;
-    for(var i = 0; i < lines.length; i++){
-        var line = lines[i];
-        if(!lastTime){
-            lastTime = line.timestamp;
-            continue;
+    fs.stat(combatLogArchiveDirectory, function(err, dirStat){
+        if(err){
+            fs.mkdirSync(combatLogArchiveDirectory);
         }
-        if(line.timestamp && line.timestamp.diff(lastTime) > splitByTime){
-            splitLines.push(lineBin);
-            lineBin = [];
-        }
-        lineBin.push(line);
-        lastTime = line.timestamp;
-    }
-    
-    console.log(splitLines.length + ' time splits');
-    
-    for(var i = 0; i < splitLines.length; i++){
-        var split = splitLines[i];
-        var firstLine = split[0];
-        var lastLine = split[split.length - 1];
-        if(!lastLine){
-            console.log('No lastline', split.length);
-        }else{
-            var splitTime = moment.duration(lastLine.timestamp.diff(firstLine.timestamp));
-            console.log(firstLine.timestamp.format(), lastLine.timestamp.format(), splitTime.humanize());
+        
+        CalculateSegments();
+        
+        var numToArchive = timeSegments.length - autoArchiveKeepSegmentCount;
+        console.log('Archiving ' + numToArchive + ' segments');
+        
+        if(numToArchive > 0){
             
-            var breakdown = split.breakdown(
-                function(line){ return line.owner; },
-                function(line){ return line.target; },
-                function(line){ return line.type; },
-                function(line){ return line.event; },
-                function(items){ return items.reduce(function(sum,i){ return sum + i.magnitude; },0); }
-            );
-            socket.emit('data', breakdown);
-        }
-        break;
-    }
-    
+            for(var i = 0; i < numToArchive; i++){
+                var segment = timeSegments.shift();
+                var guid = util.Guid();
+                var segmentFileName = segment[0].timestamp.format(timeSegmentDisplayFormat) + ' - ' + segment[segment.length-1].timestamp.format(timeSegmentDisplayFormat) + '.log';
+                var filePath = combatLogArchiveDirectory + '\\' + segmentFileName;
+                fs.writeFileSync(filePath, SegmentToRaw(segment));
+                console.log('Archived ' + segmentFileName);
+            }
+            
+            var raw = timeSegments.reduce(function(raw, segment){
+                if(raw.length > 0){
+                    return raw + '\n' + SegmentToRaw(segment);
+                }else{
+                    return SegmentToRaw(segment);
+                }
+            }, '');
+            fs.unlinkSync(combatLogFile);
+            fs.writeFileSync(combatLogFile, raw);
+       
+        }       
+    });
 }
