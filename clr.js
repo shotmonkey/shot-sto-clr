@@ -6,8 +6,8 @@ var tff = require('text-file-follower');
 var moment = require('moment');
 var util = require('./utility.js');
 
-var combatLogFile = './Combatlog.Log';
-var combatLogArchiveDirectory = './Combatlog_archive';
+var combatLogFile = 'D:/Games/Steam/steamapps/common/Star Trek Online/Star Trek Online/Live/logs/GameClient/Combatlog.Log';
+var combatLogArchiveDirectory = 'D:/Games/Steam/steamapps/common/Star Trek Online/Star Trek Online/Live/logs/GameClient/Combatlog_archive';
 var lines = [];
 
 var timeSegmentSplitByTime = 60 * 1000;
@@ -19,7 +19,7 @@ var maxUpdateLines = 10000;
 
 var autoArchiveEnabled = true;
 var autoArchiveTimeout;
-var autoArchiveKeepSegmentCount = 1;
+var autoArchiveKeepSegmentCount = 5;
 
 app.get('/', function(request, response){
     response.sendFile(__dirname + '/index.html');
@@ -172,7 +172,7 @@ function GetSegments(socket){
 function SegmentToRaw(segment){
     return segment.reduce(function(raw,line){
         if(raw.length>0){
-            return raw + '\r\n' + line.raw;
+            return raw + '\n' + line.raw;
         }else{
             return line.raw;
         }
@@ -215,7 +215,7 @@ function ArchiveCombatLog(){
             
             var raw = timeSegments.reduce(function(raw, segment){
                 if(raw.length > 0){
-                    return raw + '\r\n' + SegmentToRaw(segment);
+                    return raw + '\n' + SegmentToRaw(segment);
                 }else{
                     return SegmentToRaw(segment);
                 }
