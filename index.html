@@ -10,12 +10,8 @@
 </head>
 <body>
     <div id="socket-buttons">
-        <button data-command="subscribe" id="subscribe">Enable Auto-Refresh</button>
-        <button data-command="unsubscribe" id="unsubscribe">Disable Auto-refresh</button>
-        <button data-command="clear">Clear</button>
-        <button data-command="reload">Reload</button>
-        <button data-command="count">Count</button>
-        <button data-command="getsegments">Get Segments</button>
+        <button data-command="test">Test</button>
+        
     </div>
     <div id="segments">
     </div>
@@ -26,82 +22,8 @@
     $('#socket-buttons > button').on('click', function(){
         socket.emit($(this).data('command'));
     });
-    
-    $('#unsubscribe').hide();
-    
-    socket.on('subscribed', function(){
-        $('#subscribe').hide();
-        $('#unsubscribe').show();
-    });
-    socket.on('unsubscribed', function(){
-        $('#unsubscribe').hide();
-        $('#subscribe').show();
-    });
-    
-    socket.on('count', function(count){ 
-        console.log(Date.now(), 'Count: ', count);
-    });
-    
-    socket.on('line-added', function(count){ 
-        console.log(Date.now(), 'Line added. Count: ', count);
-    });
-    
-    socket.on('segments', function(data){
-        var $select = $('<select>');
-        function O(data,label){
-            label = label || data;
-            return $('<option>').text(label).attr('value', data);
-        }
-        for(var i = 0; i < data.length; i++){
-            $select.append(O(data[i]));
-        }
-        $('#segments').html($select);
-    });
-    
-    socket.on('segment-data', function(data){
-        console.log(data);
-        
-        var dataTable;
-        
-        var smoothSeconds = 5;
-        var smoothData = data.reduce(function(newdata, d, di, data){
-            var recentDamage = 0;
-            for(var i = Math.max(0, di - smoothSeconds); i <= di; i++){
-                recentDamage += data[i][1];
-            }
-            recentDamage = Math.round((recentDamage / smoothSeconds) * 10) / 10;
-            newdata.push([d[0], recentDamage]);
-            return newdata;
-        },[]);
-        
-        var sumData = data.reduce(function(newdata, d){
-            var total = newdata.length > 0 ? newdata[newdata.length - 1][1] : 0;
-            newdata.push([d[0], total + d[1]]);
-            return newdata;
-        },[]);
-        
-        var chart;
-        
-        dataTable = new google.visualization.DataTable();
-        dataTable.addColumn('string', 'Time');
-        dataTable.addColumn('number', 'Damage/s');
-        dataTable.addRows(data);
-        chart = new google.visualization.LineChart($('<div>').appendTo('body')[0]);
-        chart.draw(dataTable, {});
-        
-        dataTable = new google.visualization.DataTable();
-        dataTable.addColumn('string', 'Time');
-        dataTable.addColumn('number', 'Damage (Avg/' + smoothSeconds + 's)');
-        dataTable.addRows(smoothData);
-        chart = new google.visualization.LineChart($('<div>').appendTo('body')[0]);
-        chart.draw(dataTable, {});
-        
-        dataTable = new google.visualization.DataTable();
-        dataTable.addColumn('string', 'Time');
-        dataTable.addColumn('number', 'Damage (Total)');
-        dataTable.addRows(sumData);
-        chart = new google.visualization.LineChart($('<div>').appendTo('body')[0]);
-        chart.draw(dataTable, {});
+    socket.on('test', function(data){
+        console.log(Date.now(), data);
     });
 </script>
 </html>

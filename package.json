@@ -7,6 +7,7 @@
     "fs": "0.0.2",
     "line-by-line": "^0.1.3",
     "moment": "^2.10.3",
+    "open": "0.0.5",
     "socket.io": "^1.3.5",
     "text-file-follower": "^0.1.0"
   }
