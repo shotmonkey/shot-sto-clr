@@ -43,6 +43,12 @@ Array.prototype.Breakdown = function(){
 
 module.exports = (function(){
     
+    this.constants = {
+        ENTITY_TYPE_PLAYER: 'player',
+        ENTITY_TYPE_NPC: 'npc',
+        ENTITY_TYPE_OTHER: 'other',
+    };
+    
     this.Guid = function() {
         function s4() {
             return Math.floor((1 + Math.random()) * 0x10000)

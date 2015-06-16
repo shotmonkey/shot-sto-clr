@@ -7,13 +7,25 @@
     <script type="text/javascript">
         google.load('visualization', '1.0', {'packages':['corechart']})
     </script>
+    <style type="text/css">
+        thead {
+            background-color: gray;
+            color: white;
+        }
+        th, td {
+            padding: 5px;
+        }
+    </style>
 </head>
 <body>
     <div id="socket-buttons">
-        <button data-command="test">Test</button>
-        
+        <!--<button data-command="test">Test</button>-->        
     </div>
     <div id="segments">
+    </div>
+    <div id="display">
+    </div>
+    <div id="raw">
     </div>
 </body>
 <script>
@@ -22,8 +34,91 @@
     $('#socket-buttons > button').on('click', function(){
         socket.emit($(this).data('command'));
     });
-    socket.on('test', function(data){
+    socket.on('test', ConsoleLog);
+    socket.on('segments', DisplaySegments);
+    socket.on('segment-data', DisplaySegmentData);
+    
+    function SELECT(){ return $('<select>'); }
+    function OPTION(value, display){
+        display = display || value;
+        return $('<option>')
+            .attr('value', value)
+            .text(display);
+    }
+    function TABLE(){ return $('<table>'); }
+    function TR(){ return $('<tr>'); }
+    function TD(){ return $('<td>'); }
+    function TH(){ return $('<th>'); }
+    function TBODY(){ return $('<tbody>'); }
+    function THEAD(){ return $('<thead>'); }
+    
+    function DisplaySegments(segments){
+        var $segments = $('#segments');
+        $segments.empty();
+        
+        var $select = SELECT();
+        for(var i = 0; i < segments.length; i++){
+            var segment = segments[i];
+            var segmentDescription = segment.startTime + ' - ' + segment.endTime + ' - ' + segment.durationDescription + ' (' + segment.lines + ')';
+            $select.append(OPTION(segment.id, segmentDescription));
+        }
+        $select.appendTo($segments);
+        
+        var $button = $('<button>')
+            .text('Get Data')
+            .appendTo($segments);
+            
+        $button.on('click', function(){
+            var segmentId = $select.val();
+            socket.emit('subscribe', segmentId);
+        });
+    }
+    
+    function ColumnDefinition(selector, header){
+        this.selector = selector;
+        this.header = header;
+    }
+    
+    function TableOfArray(data, columns){
+        var $table = TABLE();
+        if(columns){
+            var $thead = THEAD().appendTo($table);
+            var $theadr = TR().appendTo($thead);
+            for(var i = 0; i < columns.length; i++){
+                var col = columns[i];
+                TH().text(col.header).appendTo($theadr);
+            }
+            var $tbody = TBODY().appendTo($table);
+            if(data){
+                for(var i = 0; i < data.length; i++){
+                    var row = data[i];
+                    if(row){
+                        var $row = TR().appendTo($tbody);
+                        for(var j = 0; j < columns.length; j++){
+                            var col = columns[j];
+                            TD().text(col.selector(row)).appendTo($row);
+                        }
+                    }
+                }
+            }
+        }
+        return $table;
+    }
+    
+    function DisplaySegmentData(data){
+        var $display = $('#display').empty()
+            .append(TableOfArray(data.playerData, [
+                new ColumnDefinition(function(row){ return row.player.display; }, 'Player'),
+                new ColumnDefinition(function(row){ return row.totalDamage; }, 'Damage'),
+                new ColumnDefinition(function(row){ return row.dps; }, 'DPS'),
+                new ColumnDefinition(function(row){ return row.totalHealing; }, 'Healing'),
+                new ColumnDefinition(function(row){ return row.time; }, 'Time'),
+            ]));
+    }
+    
+    function ConsoleLog(data){
         console.log(Date.now(), data);
-    });
+    }
+    
 </script>
 </html>

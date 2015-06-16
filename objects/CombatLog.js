@@ -1,3 +1,5 @@
+var events = require('events');
+
 var CombatLogSegment = require('./CombatLogSegment.js');
 var CombatLogLine = require('./CombatLogLine.js');
 
@@ -9,6 +11,7 @@ var config = require('../config.js');
 var CombatLog = function(file, options){
     
     var _this = this;
+    events.EventEmitter.call(this);
     
     this.file = file;
     
@@ -51,6 +54,13 @@ var CombatLog = function(file, options){
     }
 }
 
+CombatLog.prototype = Object.create(events.EventEmitter.prototype, {
+    constructor: {
+        value: CombatLog,
+        enumerable: false
+    }
+});
+
 Object.defineProperty(CombatLog.prototype, 'lastSegment', {
     get: function(){
         if (this.segments && this.segments.length > 0){
@@ -68,9 +78,12 @@ CombatLog.prototype.LoadLine = function(line){
     if(combatLogLine){
         if(this.lastSegment.length > 0 &&
             combatLogLine.timestamp.diff(this.lastSegment.endTime) > config.segmentSplitTime){
-            this.segments[this.segments.length] = new CombatLogSegment();
+            var newSegment = new CombatLogSegment();
+            this.segments[this.segments.length] = newSegment;
+            this.emit('newsegment', newSegment.id);
         }
         this.lastSegment.AddLine(combatLogLine);
+        this.emit('line', this.lastSegment.id, combatLogLine);
     }else{
         console.log('Error parsing line:', line);
     }
@@ -88,7 +101,7 @@ CombatLog.prototype.LoadLineLBL = function(line){
 }
 
 CombatLog.prototype.HandleError = function(error){
-    console.log('CombatLog file error:', error);
+    this.emit('error', error);
 }
 
 module.exports = CombatLog;
