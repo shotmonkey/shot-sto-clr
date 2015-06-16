@@ -63,8 +63,28 @@ CombatLog.prototype = Object.create(events.EventEmitter.prototype, {
 
 Object.defineProperty(CombatLog.prototype, 'lastSegment', {
     get: function(){
-        if (this.segments && this.segments.length > 0){
-            return this.segments[this.segments.length - 1];
+        var segments = this.segments;
+        if (segments && segments.length > 0){
+            return segments[segments.length - 1];
+        }
+        return null;
+    }
+});
+Object.defineProperty(CombatLog.prototype, 'relevantSegments', {
+    get: function(){
+        return this.segments.filter(function(segment){
+            return (segment.duration.seconds() >= 10 ||
+                segment.length >= 10) &&
+                segment.players.length >= 1 &&
+                segment.npcs.length >= 1;
+        });
+    }
+});
+Object.defineProperty(CombatLog.prototype, 'lastRelevantSegment', {
+    get: function(){
+        var segments = this.relevantSegments;
+        if (segments && segments.length > 0){
+            return segments[segments.length - 1];
         }
         return null;
     }

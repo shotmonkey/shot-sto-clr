@@ -5,8 +5,7 @@ var config = {
     combatLogFile: 'D:/Games/Steam/steamapps/common/Star Trek Online/Star Trek Online/Live/logs/GameClient/Combatlog.Log',
     combatLogArchiveDirectory: 'D:/Games/Steam/steamapps/common/Star Trek Online/Star Trek Online/Live/logs/GameClient/Combatlog_archive',
 
-    clientUpdateMaxLines: 1000,
-    clientUpdateMinTime: 500,
+    clientMinUpdateTime: 250,
     
     segmentSplitTime: 2.5 * 60 * 1000,
     timeDisplayFormat: 'YYYYMMDD HH.mm.ss.S',

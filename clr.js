@@ -18,93 +18,76 @@ var currentCombatLog = new CombatLog(config.combatLogFile, { tracked: true, catc
 logs.push(currentCombatLog);
 
 currentCombatLog.on('line', CurrentCombatLogUpdated);
-currentCombatLog.on('newsegment', BroadcastSegmentList);
 
 app.get('/', function(request, response){
     response.sendFile(__dirname + '/index.html');
 });
+app.get('/js/*', function(request, response){
+    response.sendFile(__dirname + '/pagescripts/' + request.params[0]);
+});
 
-io.on('connection', function(socket){
-    
-    console.log('Connected', socket.id);
-    
-    SendSegmentList(socket);
-    
-    socket.on('subscribe', function(segmentId){
-        Subscribe(socket, segmentId);
-    });
-    socket.on('unsubscribe', function(segmentId){
-        Unsubscribe(socket, segmentId);
-    });
-    
-    socket.on('test', function(){
-    });
+io.on('connection', function(socket){    
+    console.log('Connected', socket.id);    
+    SendSegmentList(socket);    
+    TryBroadcastCurrentSegmentData();
 });
 
 function GetSegmentList(){
     var segments = logs.reduce(function(segments, log){
-        return segments.concat(log.segments.map(function(segment){
+        return segments.concat(log.relevantSegments.map(function(segment){
             return segment.summary;
         }));
-    }, []).filter(function(segment){
-        return (segment.duration && segment.duration.seconds() >= 60) ||
-            segment.lines > 10;
-    });
+    }, []);
     return segments;
 }
 
-function BroadcastSegmentList(){
-    io.emit('segments', GetSegmentList());
+var broadcastSegmentListTimeout;
+function TryBroadcastSegmentList(){
+    if(!broadcastSegmentListTimeout){
+        broadcastSegmentListTimeout = setTimeout(BroadcastSegmentList, config.clientMinUpdateTime);
+    }
 }
-
+function BroadcastSegmentList(){
+    if(broadcastSegmentListTimeout){
+        clearTimeout(broadcastSegmentListTimeout);
+        broadcastSegmentListTimeout = null;
+    }
+    var segmentList = GetSegmentList();
+    console.log('Broadcasting segment list', segmentList.length);
+    io.emit('segments', segmentList);
+}
 function SendSegmentList(socket){
     socket.emit('segments', GetSegmentList());
 }
 
-function Subscribe(socket, segmentId){
-    console.log(socket.id + ' subscribed to ' + segmentId);
-    // Reset all subscriptions
-    socket.subscriptions = {};
-    socket.subscriptions[segmentId] = {};
-    TryUpdateClientSegment(socket, segmentId, true);
+var broadcastCurrentSegmentDataTimeout;
+function TryBroadcastCurrentSegmentData(){    
+    if(!broadcastCurrentSegmentDataTimeout){
+        broadcastCurrentSegmentDataTimeout = setTimeout(BroadcastCurrentSegmentData, config.clientMinUpdateTime);
+    }
 }
-function Unsubscribe(socket, segmentId){
-    console.log(socket.id + ' unsubscribed from ' + segmentId);
-    socket.subscriptions = socket.subscriptions || {};
-    socket.subscriptions[segmentId] = null;
-    socket.leave(segmentId);
+function BroadcastCurrentSegmentData(){
+    if(broadcastCurrentSegmentDataTimeout){
+        clearTimeout(broadcastCurrentSegmentDataTimeout);
+        broadcastCurrentSegmentDataTimeout = null;
+    }
+    var segment = currentCombatLog.lastRelevantSegment;
+    console.log('Broadcasting current segment data', segment.id);    
+    if(segment){
+        io.emit('current-segment-data', segment.GetPlayerSummary());
+    }
 }
 
 function CurrentCombatLogUpdated(segmentId, line){
-    TryUpdateSubscribed(segmentId);
+    TryBroadcastSegmentList();
+    TryBroadcastCurrentSegmentData();
 }
 
-function TryUpdateSubscribed(segmentId){
-    for(var i in io.sockets.connected){
-        var socket = io.sockets.connected[i];
-        TryUpdateClientSegment(socket, segmentId);
-    }
-}
-
-function TryUpdateClientSegment(socket, segmentId, forceUpdate){
-    if(socket.subscriptions &&
-        socket.subscriptions[segmentId]){
-            
-        var subscription = socket.subscriptions[segmentId];
-        
-        if(Date.now() - (subscription.lastUpdateTime || 0) >= config.clientMinUpdateTime ||
-            forceUpdate){
-            UpdateClientSegment(socket, segmentId);
-        }
-    }
-}
-
-function UpdateClientSegment(socket, segmentId){
-    console.log('UpdateClientSegment', socket.id, segmentId);
-    socket.subscriptions[segmentId].lastUpdateTime = Date.now();
+function SendSegmentData(event, socket, segmentId){
+    console.log('SendSegmentData', event, socket.id, segmentId);
     var segment = FindSegment(segmentId);
     if(segment){
-        socket.emit('segment-data', segment.GetPlayerSummary());
+        socket.emit(event, segment.GetPlayerSummary());
     }
 }
 

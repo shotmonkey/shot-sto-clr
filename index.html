@@ -3,6 +3,8 @@
 <head>
     <script src="/socket.io/socket.io.js"></script>
     <script src="//code.jquery.com/jquery-2.1.4.min.js"></script>
+    <script src="/js/hashtable.js"></script>
+    <script src="/js/jquery.numberformatter-1.2.4.min.js"></script>
     <script type="text/javascript" src="https://www.google.com/jsapi"></script>
     <script type="text/javascript">
         google.load('visualization', '1.0', {'packages':['corechart']})
@@ -23,9 +25,7 @@
     </div>
     <div id="segments">
     </div>
-    <div id="display">
-    </div>
-    <div id="raw">
+    <div id="current-segment-display">
     </div>
 </body>
 <script>
@@ -35,8 +35,8 @@
         socket.emit($(this).data('command'));
     });
     socket.on('test', ConsoleLog);
-    socket.on('segments', DisplaySegments);
-    socket.on('segment-data', DisplaySegmentData);
+    //socket.on('segments', DisplaySegments);
+    socket.on('current-segment-data', DisplayCurrentSegmentData);
     
     function SELECT(){ return $('<select>'); }
     function OPTION(value, display){
@@ -81,6 +81,7 @@
     
     function TableOfArray(data, columns){
         var $table = TABLE();
+        
         if(columns){
             var $thead = THEAD().appendTo($table);
             var $theadr = TR().appendTo($thead);
@@ -89,6 +90,7 @@
                 TH().text(col.header).appendTo($theadr);
             }
             var $tbody = TBODY().appendTo($table);
+            
             if(data){
                 for(var i = 0; i < data.length; i++){
                     var row = data[i];
@@ -101,19 +103,35 @@
                     }
                 }
             }
+            
         }
         return $table;
     }
     
-    function DisplaySegmentData(data){
-        var $display = $('#display').empty()
-            .append(TableOfArray(data.playerData, [
+    function FormatNumber(number){
+        return $.formatNumber(number, { format: '#,##0.0' });
+    }
+    
+    function DisplaySegmentData(data, element){
+        $(element).empty()
+            .append(TableOfArray(
+                data.playerData.sort(function(a,b){
+                    return (b && b.totalDamage || 0) - (a && a.totalDamage || 0);
+                }), [
                 new ColumnDefinition(function(row){ return row.player.display; }, 'Player'),
-                new ColumnDefinition(function(row){ return row.totalDamage; }, 'Damage'),
-                new ColumnDefinition(function(row){ return row.dps; }, 'DPS'),
-                new ColumnDefinition(function(row){ return row.totalHealing; }, 'Healing'),
-                new ColumnDefinition(function(row){ return row.time; }, 'Time'),
-            ]));
+                new ColumnDefinition(function(row){ return FormatNumber(row.totalDamage); }, 'Damage'),
+                new ColumnDefinition(function(row){ return FormatNumber(row.dps); }, 'DPS'),
+                new ColumnDefinition(function(row){ return FormatNumber(row.totalHealing); }, 'Healing'),
+                new ColumnDefinition(function(row){ return Math.round(row.time / 1000); }, 'Time'),
+            ]))
+            .css({
+                'font-family': 'monospace',
+                'text-align': 'right',
+            });
+    }
+    
+    function DisplayCurrentSegmentData(data){
+        DisplaySegmentData(data, '#current-segment-display');
     }
     
     function ConsoleLog(data){
