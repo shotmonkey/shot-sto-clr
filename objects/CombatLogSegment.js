@@ -78,21 +78,24 @@ Object.defineProperty(CombatLogSegment.prototype, 'npcs', {
 CombatLogSegment.prototype.GetPlayerSummary = function(){
     var _this = this;
     var playerData = _this.players.map(function(player){
-        var lines = _this.lines.filter(function(line){
+        var involvedLines = _this.lines.filter(function(line){
+            return line.owner.is(player) || line.target.is(player);
+        });
+        var ownerLines = involvedLines.filter(function(line){
             return line.owner.is(player);
         });
-        if(lines && lines.length > 0){
+        if(involvedLines && involvedLines.length > 0){
             
-            var startTime = lines[0].timestamp;
-            var endTime = lines[lines.length - 1].timestamp;
+            var startTime = involvedLines[0].timestamp;
+            var endTime = involvedLines[involvedLines.length - 1].timestamp;
             
-            var totalDamage = lines
+            var totalDamage = ownerLines
                 .filter(function(line){ return line.isDamage; })
                 .reduce(function(sum,line){ return sum + line.magnitude; }, 0);
                 
             var dps = totalDamage / (endTime.diff(startTime) / 1000);
             
-            var totalHealing = lines
+            var totalHealing = ownerLines
                 .filter(function(line){ return line.isHeal; })
                 .reduce(function(sum,line){ return sum + line.magnitude; }, 0);
             
