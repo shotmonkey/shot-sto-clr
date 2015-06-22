@@ -115,10 +115,15 @@ CombatLogSegment.prototype.GetPlayerSummary = function(){
             var startTime = involvedLines[0].timestamp;
             var endTime = involvedLines[involvedLines.length - 1].timestamp;
             
-            var damageLines = ownerLines
+<<<<<<< HEAD
+            var totalDamage = ownerLines
+                .filter(function(line){ return line.isDamage; })
+=======
+            var damageLines = lines
                 .filter(function(line){ return line.isDamage; });
             
             var totalDamage = damageLines
+>>>>>>> 89e9e6e5a6ebc2ad9cba3f1aa0cd84d699ae82ed
                 .reduce(function(sum,line){ return sum + line.magnitude; }, 0);
                 
             var dps = totalDamage / (endTime.diff(startTime) / 1000);

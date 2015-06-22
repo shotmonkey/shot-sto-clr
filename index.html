@@ -10,6 +10,22 @@
         google.load('visualization', '1.0', {'packages':['corechart']})
     </script>
     <style type="text/css">
+        * {
+            font-family: monospace;
+        }        
+        td {
+            text-align: right;
+        }
+        th, td:first-child {
+            text-align: left;
+            font-weight: bold;
+        }
+        tbody tr:nth-child(even) {
+            background-color: whitesmoke;
+        }
+        tbody tr:hover {
+            background-color: skyblue;
+        }
         thead {
             background-color: gray;
             color: white;
@@ -29,6 +45,12 @@
     </div>
 </body>
 <script>
+    Array.max = function(array, selector){
+        selector = selector || function(a){ return a; };
+        var mappedArray = array.map(selector);
+        return Math.max.apply(Math, mappedArray);
+    }
+    
     var socket = io();
     
     $('#socket-buttons > button').on('click', function(){
@@ -98,7 +120,7 @@
                         var $row = TR().appendTo($tbody);
                         for(var j = 0; j < columns.length; j++){
                             var col = columns[j];
-                            TD().text(col.selector(row)).appendTo($row);
+                            TD().append(col.selector(row)).appendTo($row);
                         }
                     }
                 }
@@ -112,7 +134,67 @@
         return $.formatNumber(number, { format: '#,##0.0' });
     }
     
+    function SmoothData(data, smooth){
+        if(data && data.length > 0){
+            
+            var rollingData = [];
+            var smoothedData = [];
+            for(var i = 0; i < data.length; i++){
+                rollingData.push(data[i]);
+                if(rollingData.length > smooth){ rollingData.shift(); }
+                var sum = rollingData.reduce(function(sum, d){ return sum + d; },0);
+                var avg = sum / rollingData.length;
+                smoothedData.push(avg);
+            }
+            
+            return smoothedData;
+            
+        }else{
+            return data;
+        }
+    }
+    
+    function CreateDamageDataDisplay(data, interval){
+        interval = interval || 1000;
+    
+        var display = document.createElement('canvas');
+        display.width = (data && data.length) || 0;
+        display.height = 20;
+        
+        if(!data){
+            return display;
+        }
+        
+        data = SmoothData(data, 3);
+        
+        var ctx = display.getContext('2d');
+        //ctx.fillStyle = 'black'
+        //ctx.fillRect(0, 0, display.width, display.height);
+        
+        var intervalsPerSecond = 60000 / interval;
+        ctx.fillStyle = 'lightgray';
+        for(var x = intervalsPerSecond; x < data.length; x+= intervalsPerSecond){
+            ctx.fillRect(x, 0, 1, display.height);
+        }
+        
+        var maxDamage = Array.max(data);
+        var scale = display.height / maxDamage;
+        
+        ctx.fillStyle = 'blue';
+        for(var x = 0; x < data.length; x++){
+            var y = data[x] * scale;
+            ctx.fillRect(x, display.height - y, 1, y);
+        }
+        
+        return display;
+    }
+    
     function DisplaySegmentData(data, element){
+    
+        var maxDps = data.playerData.sort(function(a,b){ return b.dps - a.dps; })[0].dps;
+        var dpsChartWidth = 100;
+        var dpsScale = dpsChartWidth / maxDps;
+    
         $(element).empty()
             .append(TableOfArray(
                 data.playerData.sort(function(a,b){
@@ -120,18 +202,35 @@
                 }), [
                 new ColumnDefinition(function(row){ return row.player.display; }, 'Player'),
                 new ColumnDefinition(function(row){ return FormatNumber(row.totalDamage); }, 'Damage'),
-                new ColumnDefinition(function(row){ return FormatNumber(row.dps); }, 'DPS'),
+                new ColumnDefinition(function(row){
+                        var dpsNumber = FormatNumber(row.dps);
+                        var wrap = $('<div>').css({
+                            position: 'relative',
+                            width: dpsChartWidth + 'px',
+                        });
+                        wrap.append(dpsNumber);
+                        wrap.append($('<div>').css({
+                                width: (row.dps * dpsScale) + 'px',
+                                height: '2px',
+                                'background-color': 'blue',
+                                position: 'absolute',
+                                right: '0',
+                            }));
+                        return wrap;
+                    }, 'DPS'),
                 new ColumnDefinition(function(row){ return FormatNumber(row.totalHealing); }, 'Healing'),
                 new ColumnDefinition(function(row){ return Math.round(row.time / 1000); }, 'Time'),
-            ]))
-            .css({
-                'font-family': 'monospace',
-                'text-align': 'right',
-            });
+                new ColumnDefinition(function(row){ return CreateDamageDataDisplay(row.damageData, 1000); }, 'Damage Display'),
+            ]));
     }
     
     function DisplayCurrentSegmentData(data){
-        DisplaySegmentData(data, '#current-segment-display');
+        var $display = $('#current-segment-display').empty();
+        
+        var $summary = $('<div>').appendTo($display);
+        
+        var $table = $('<div>').appendTo($display);
+        DisplaySegmentData(data, $table);
     }
     
     function ConsoleLog(data){

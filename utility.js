@@ -41,6 +41,12 @@ Array.prototype.Breakdown = function(){
     }
 }
 
+Array.max = function(array, selector){
+    selector = selector || function(a){ return a; };
+    var mappedArray = array.map(selector);
+    return Math.max.apply(Math, mappedArray);
+}
+
 module.exports = (function(){
     
     this.constants = {
