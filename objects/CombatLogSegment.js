@@ -75,6 +75,32 @@ Object.defineProperty(CombatLogSegment.prototype, 'npcs', {
     }
 });
 
+function GetDamageData(lines, startTime, endTime, interval){
+    var time = startTime.clone();
+    var data = [];
+    var lineIndex = 0;
+    
+    while(time <= endTime){
+        var nextTime = time.clone().add(interval, 'ms');
+        
+        var damage = 0;
+        
+        while(lineIndex < lines.length){
+            var line = lines[lineIndex];
+            if(line.timestamp.isAfter(nextTime)){
+                break;
+            }
+            lineIndex++;
+            damage += line.magnitude;
+        }
+        
+        data.push(damage);
+        time = nextTime;
+    }
+    
+    return data;
+}
+
 CombatLogSegment.prototype.GetPlayerSummary = function(){
     var _this = this;
     var playerData = _this.players.map(function(player){
@@ -86,8 +112,10 @@ CombatLogSegment.prototype.GetPlayerSummary = function(){
             var startTime = lines[0].timestamp;
             var endTime = lines[lines.length - 1].timestamp;
             
-            var totalDamage = lines
-                .filter(function(line){ return line.isDamage; })
+            var damageLines = lines
+                .filter(function(line){ return line.isDamage; });
+            
+            var totalDamage = damageLines
                 .reduce(function(sum,line){ return sum + line.magnitude; }, 0);
                 
             var dps = totalDamage / (endTime.diff(startTime) / 1000);
@@ -96,21 +124,24 @@ CombatLogSegment.prototype.GetPlayerSummary = function(){
                 .filter(function(line){ return line.isHeal; })
                 .reduce(function(sum,line){ return sum + line.magnitude; }, 0);
             
+            var damageData = GetDamageData(damageLines, _this.startTime, _this.endTime, 1000);
+            
             return {
                 player: player,
                 totalDamage: Math.round(totalDamage * 10) / 10,
                 dps: Math.round(dps * 10) / 10,
                 totalHealing: Math.round(totalHealing * 10) / 10,
                 time: endTime.diff(startTime),
+                damageData: damageData,
             };
         }
     });
     
     var data = {
-        id: this.id,
-        startTime: this.startTime,
-        endTime: this.endTime,
-        durationDescription: (this.duration && this.duration.humanize()) || null,
+        id: _this.id,
+        startTime: _this.startTime,
+        endTime: _this.endTime,
+        durationDescription: (_this.duration && _this.duration.humanize()) || null,
         playerData: playerData,
     };
     
